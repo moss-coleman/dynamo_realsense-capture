@@ -1,5 +1,4 @@
 __doc__ = \ 
-
 """
 Calibrate multiple Intel RealSense D4XX cameras to a single global coordinate system using a defined checkerboard
 
@@ -70,7 +69,7 @@ def load(fileName):
         devicesTransformation = pickle.load(f)
     return devicesTransformation
 
-def new(fileName, deviceManager, board_type, board_parameters):
+def new_calibration(fileName, deviceManager, board_type, board_parameters):
     """
     New calibration parameters for each connected camera are created and saved in a pickle file format.
 
