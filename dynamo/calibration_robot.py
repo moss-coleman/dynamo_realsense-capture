@@ -1,4 +1,4 @@
-__doc__ = 
+__doc__ = \ 
 
 """
 Calibrate multiple Intel RealSense D4XX cameras to a single global coordinate system using a defined checkerboard
