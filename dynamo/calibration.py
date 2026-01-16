@@ -19,8 +19,11 @@ import cv2
 import numpy as np
 import time
 import pickle
+import yaml
 
-from .realsense_device_manager import DeviceManager
+
+from dynamo.realsense_device_manager import DeviceManager
+# from .realsense_device_manager import DeviceManager
 from .calculate_rmsd import *
 
 
@@ -69,7 +72,7 @@ def load(fileName):
         devicesTransformation = pickle.load(f)
     return devicesTransformation
 
-def new(fileName,deviceManager, chessboardHeight, chessboardWidth, chessboardSquareSize):
+def new(fileName, deviceManager, chessboardHeight, chessboardWidth, chessboardSquareSize):
     """ 
     New calibration parameters for each connected camera and are created and saved in a pickle file format.
     
@@ -112,6 +115,7 @@ def new(fileName,deviceManager, chessboardHeight, chessboardWidth, chessboardSqu
     devicesTransformations = poseTransformation(chessboardLocations, chessboardHeight, chessboardWidth, chessboardSquareSize) #return dictionary of 
     with open(fileName,'wb') as f:
         pickle.dump(devicesTransformations, f)
+    save_calibration_yaml(devicesTransformations, fileName, error=0.0)
     return devicesTransformations
 
 def newIterative(fileName,deviceManager, cameraList, chessboardHeight, chessboardWidth, chessboardSquareSize):
@@ -185,6 +189,7 @@ def newIterative(fileName,deviceManager, cameraList, chessboardHeight, chessboar
     print(deviceTransformations)
     with open(fileName,'wb') as f:
         pickle.dump(deviceTransformations, f)
+    save_calibration_yaml(deviceTransformations, fileName, error=0.0)
     return deviceTransformations
 
 
@@ -276,8 +281,6 @@ def detectChessboard(deviceManager, cameraSet, chessboardHeight, chessboardWidth
         time.sleep(1)
         cv2.destroyAllWindows()
     return devicesChessboardLocations
-        
-
 
 def poseTransformation(chessboardLocations, chessboardHeight, chessboardWidth, chessboardSquareSize):
     """ 
@@ -335,6 +338,92 @@ def poseTransformation(chessboardLocations, chessboardHeight, chessboardWidth, c
             
             devicesTransformation[serial] = [poseMat, rmsdValue]
     return devicesTransformation
+
+
+def save_calibration_yaml(devicesTransformations, fileName, error=0.0):
+    """
+    Save calibration data in YAML format compatible with existing calibration config files.
+    
+    Parameters
+    ----------
+    devicesTransformations : dict
+        Dictionary of camera transformations
+    fileName : str
+        Base filename for the .cal file
+    board_parameters : dict
+        Board parameters used for calibration
+    error : float
+        Calibration error (RMSD)
+    """
+    try:
+        # Create YAML filename by replacing .cal extension
+        yaml_filename = fileName.replace('.cal', '.yaml')
+        
+        # Prepare cameras section
+        cameras = {}
+        for camera_serial, transform_data in devicesTransformations.items():
+            # Handle different data structures
+            if isinstance(transform_data, np.ndarray) and transform_data.shape == (4, 4):
+                # Direct transformation matrix
+                transform_matrix = transform_data
+                cameras[camera_serial] = transformation_matrix_to_yaml_format(
+                    transform_matrix, camera_serial, error
+                    )
+            elif isinstance(transform_data, list) and len(transform_data) >= 1:
+                # List format [transform_matrix, error]
+                transform_matrix = transform_data[0]
+                if isinstance(transform_matrix, np.ndarray) and transform_matrix.shape == (4, 4):
+                    cameras[camera_serial] = transformation_matrix_to_yaml_format(
+                        transform_matrix, camera_serial, 
+                        transform_data[1] if len(transform_data) > 1 else error, 
+                    )
+        
+        # Create complete YAML structure
+        yaml_data = {
+            'cameras': cameras
+        }
+        print("yaml_data:", yaml_data)
+        print("Devices Transformations:", devicesTransformations)
+        
+        # Save YAML file
+        with open(yaml_filename, 'w') as f:
+            yaml.dump(yaml_data, f, default_flow_style=False, sort_keys=False)
+        
+        print(f"✅ Calibration data also saved in YAML format: {yaml_filename}")
+        
+    except Exception as e:
+        print(f"⚠️  Warning: Could not save YAML file: {e}")
+
+
+def transformation_matrix_to_yaml_format(transform_matrix, camera_serial, error=0.0, method_name='charuco', orientation='rotation_matrix'):
+    """
+    Convert a 4x4 transformation matrix to YAML format compatible with the existing calibration config.
+    
+    Parameters
+    ----------
+    transform_matrix : np.ndarray
+        4x4 transformation matrix
+    camera_serial : str
+        Camera serial number
+    board_parameters : dict
+        Board parameters used for calibration
+    error : float
+        Calibration error (RMSD)
+        
+    Returns
+    -------
+    dict
+        Dictionary in the format expected by the YAML calibration config
+    """
+    if orientation == 'rotation_matrix':
+        # save the transformation matrix in yaml format
+        camera_entry = {
+            'description': f'Calibrated using {method_name} method (error: {error:.6f})',
+            'transformation_matrix': transform_matrix.tolist(),
+        }
+    
+    return camera_entry
+
 
 if __name__ == "__main__":
     new('newCalibration.cal')

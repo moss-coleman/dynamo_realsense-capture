@@ -37,6 +37,7 @@ def captureThread(q,deviceManager,stream_time):
     fnumber = deviceManager.poll_frames()[refSerial].get_frame_number() #get frame number to ensure subsequent frames are saved
     while i<int(90*stream_time):
         frames = deviceManager.poll_frames()
+        # print("Device: ", deviceManager._config.get_device_serial_number())
         newfnumber = frames[refSerial].get_frame_number()
         if fnumber != newfnumber: #only save if frame has not already been saved
             q.put(frames)
@@ -90,7 +91,7 @@ def processThread(q,devicesTransformation, saveDirectory):
             deviceData['poseMat'] = devicesTransformation[device][0] #save transformation matrix
             savedData[device]=deviceData #save each camera's information in master dictionary for frame
         pickle.dump(copy.deepcopy(savedData),file)
-        print('processed'+str(i))
+        print('processed: '+str(i))
         i+=1
         file.close()
         q.task_done()

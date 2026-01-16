@@ -293,6 +293,57 @@ class DeviceManager:
                     height = stream.as_video_stream_profile().height()
         return width, height
 
+    def get_device_intrinsics_matrix(self, frames):
+        """
+        Get the intrinsic matrix of the image using its frame delivered by the realsense device
+
+        Parameters
+        -----------
+        frames : rs::frame
+            The frame grabbed from the imager inside the Intel RealSense for which the intrinsic is needed
+
+        Returns
+        ------
+        device_intrinsic_matrix : dict 
+            Dictionary with device_intrinsics_matrix stored as 
+
+        keys  : serial
+            Serial number of the device
+
+        values: [key]
+            Intrinsics of the corresponding device
+        """
+        #TODO add in distortion values as numpy array to be used 
+        device_intrinsics_matrix = {}
+        for (serial, frameset) in frames.items():
+            device_intrinsics_matrix[serial] = {}
+            try:
+                device_intrinsics_matrix[serial][rs.stream.depth] = frameset.get_depth_frame().get_profile().as_video_stream_profile().get_intrinsics()
+                print("!!!got depth intrinsics!!!")
+            except:
+                pass
+            try:
+                intrinsics = frameset.get_color_frame().get_profile().as_video_stream_profile().get_intrinsics()
+                print("!!!got color intrinsics!!!", intrinsics)
+                print("rs.stream.color: ", rs.stream.color)
+                device_intrinsics_matrix[serial][rs.stream.color] = np.eye((3, 3))
+                print("!!!setting device color intrinsic as: ", device_intrinsics_matrix[serial][rs.stream.color])
+                device_intrinsic_matrix[serial][rs.stream.color][0, 0] = intrinsics.fx
+                device_intrinsic_matrix[serial][rs.stream.color][1, 1] = intrinsics.fy
+                device_intrinsic_matrix[serial][rs.stream.color][0, 2] = intrinsics.ppx
+                device_intrinsic_matrix[serial][rs.stream.color][1, 2] = intrinsics.ppy
+                device_intrinsic_matrix[serial][rs.stream.color][2, 2] = 1.0
+                print("device_intrinsic_matrix: ", device_intrinsic_matrix)
+            except:
+                pass
+            try:
+                device_intrinsics_matrix[serial][rs.stream.infrared] = frameset.get_infrared_frame(1).get_profile().as_video_stream_profile().get_intrinsics()
+            except:
+                pass
+
+        return device_intrinsics_matrix
+
+    
     def get_device_intrinsics(self, frames):
         """
         Get the intrinsics of the imager using its frame delivered by the realsense device
